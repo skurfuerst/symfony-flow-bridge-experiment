@@ -5,7 +5,7 @@ namespace Skurfuerst\ComposerProxyGenerator;
 use Composer\Script\Event;
 use Composer\IO\IOInterface;
 
-class OverloadClass
+class OverloadClass2
 {
     const EXTRA_OVERLOAD_CACHE_DIR = 'composer-overload-cache-dir';
     const EXTRA_OVERLOAD_CACHE_DIR_DEV = 'composer-overload-cache-dir-dev';
@@ -16,6 +16,7 @@ class OverloadClass
 
     public static function overload(Event $event)
     {
+        return;
         var_dump(get_class($event));
         static::defineAutoloadExcludeFromClassmap($event);
         static::defineAutoloadFiles($event);
