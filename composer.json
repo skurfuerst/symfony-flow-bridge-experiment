@@ -51,7 +51,6 @@
         "symfony/polyfill-php56": "*"
     },
     "scripts": {
-        "pre-autoload-dump": "Skurfuerst\\ComposerProxyGenerator\\OverloadClass2::overload",
         "post-autoload-dump": "Skurfuerst\\ComposerProxyGenerator\\OverloadClass2::post",
         "auto-scripts": {
             "cache:clear": "symfony-cmd",

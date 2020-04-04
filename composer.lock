@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1c577fbeef93627295cb96d37b92794f",
+    "content-hash": "57a43034fc8bd502d141e6a8dcf7e792",
     "packages": [
         {
             "name": "composer/ca-bundle",
@@ -572,6 +572,47 @@
             "time": "2019-09-25T14:49:45+00:00"
         },
         {
+            "name": "neos/utility-objecthandling",
+            "version": "6.1.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/neos/utility-objecthandling.git",
+                "reference": "eaed34b1c0560bedfd15bc69a8fe1393aad44cbd"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/neos/utility-objecthandling/zipball/eaed34b1c0560bedfd15bc69a8fe1393aad44cbd",
+                "reference": "eaed34b1c0560bedfd15bc69a8fe1393aad44cbd",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.2"
+            },
+            "require-dev": {
+                "doctrine/common": "^2.4",
+                "doctrine/orm": "^2.6",
+                "phpunit/phpunit": "~8.1"
+            },
+            "type": "library",
+            "extra": {
+                "neos": {
+                    "package-key": "Neos.Utility.ObjectHandling"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Neos\\Utility\\": "Classes"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Flow array/object property and type utilities",
+            "homepage": "http://flow.neos.io",
+            "time": "2019-09-20T08:29:45+00:00"
+        },
+        {
             "name": "nikic/php-parser",
             "version": "v4.3.0",
             "source": {
@@ -1109,10 +1150,11 @@
             "dist": {
                 "type": "path",
                 "url": "./DistributionBundles/composer-proxy-generator",
-                "reference": "1e1246482c48609eb52ca337b6ee659cda76a3a7"
+                "reference": "fec4b5e2fa4d28c04cdb9b920cd031dad77a3a2b"
             },
             "require": {
-                "composer/composer": "*"
+                "composer/composer": "*",
+                "neos/utility-objecthandling": "*"
             },
             "type": "library",
             "autoload": {
@@ -3449,5 +3491,6 @@
         "ext-ctype": "*",
         "ext-iconv": "*"
     },
-    "platform-dev": []
+    "platform-dev": [],
+    "plugin-api-version": "1.1.0"
 }

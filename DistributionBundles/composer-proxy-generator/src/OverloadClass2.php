@@ -4,7 +4,9 @@ namespace Skurfuerst\ComposerProxyGenerator;
 
 use Composer\Script\Event;
 use Composer\IO\IOInterface;
+use Neos\Flow\ObjectManagement\DependencyInjection\PropertyInjectionTrait;
 use Neos\Flow\ObjectManagement\Proxy\Exception;
+use Skurfuerst\ComposerProxyGenerator\Proxy\ProxyClass;
 
 class OverloadClass2
 {
@@ -15,12 +17,12 @@ class OverloadClass2
     const EXTRA_OVERLOAD_DUPLICATE_ORIGINAL_FILE = 'duplicate-original-file';
     const NAMESPACE_PREFIX = 'SkurfuerstProxyOriginals';
 
-    protected static $overrideClassMap = [];
-
-    public static function overload(Event $event)
+    public static function post(Event $event)
     {
-        self::$overrideClassMap = [];
+        $overrideClassMap = [];
         $extra = $event->getComposer()->getPackage()->getExtra();
+
+        $loader = require 'vendor/autoload.php';
 
         foreach ($extra['skurfuerst-proxy-paths'] as $path) {
 
@@ -37,14 +39,17 @@ class OverloadClass2
                         $className = trim($className, '\\');
                         var_dump($className);
 
+                        $proxyClassCode = static::buildProxyClassCode($className);
+
                         static::copyAndRenameOriginalClassToCacheDir(
                             'var/cache/SkurfuerstProxy',
                             $className,
+                            $proxyClassCode,
                             $file,
                             $event->getIO()
                         );
 
-                        self::$overrideClassMap[$className] = 'var/cache/SkurfuerstProxy/' . str_replace('\\', '_', $className) . '.php';
+                        $overrideClassMap[$className] = 'var/cache/SkurfuerstProxy/' . str_replace('\\', '_', $className) . '.php';
                     }
                 }
             }
@@ -56,27 +61,47 @@ class OverloadClass2
 
         /*static::defineAutoloadExcludeFromClassmap($event);
         static::defineAutoloadFiles($event);*/
-    }
 
-    public static function post(Event $event)
-    {
+
+        // 3nd -> rewrite autoloader!!
         rename('vendor/autoload.php', 'vendor/autoload_orig.php');
-            $autoload = '<?php' . chr(10)
-                . '$loader = require(__DIR__ . \'/autoload_orig.php\');' . chr(10);
+        $autoload = '<?php' . chr(10)
+            . '$loader = require(__DIR__ . \'/autoload_orig.php\');' . chr(10);
 
-            $autoload .= '$extraClassMap = [' . chr(10);
-            foreach (self::$overrideClassMap as $className => $filePath) {
-                $autoload .= '    ' . var_export($className, true) . ' => __DIR__ . \'/../\' . ' . var_export($filePath, true) . ',' . chr(10);
-            }
-            $autoload .= '];' . chr(10);
+        $autoload .= '$extraClassMap = [' . chr(10);
+        foreach ($overrideClassMap as $className => $filePath) {
+            $autoload .= '    ' . var_export($className, true) . ' => __DIR__ . \'/../\' . ' . var_export($filePath, true) . ',' . chr(10);
+        }
+        $autoload .= '];' . chr(10);
 
-            $autoload .= '$loader->addClassMap($extraClassMap);' . chr(10);
-            $autoload .= 'return $loader;';
+        $autoload .= '$loader->addClassMap($extraClassMap);' . chr(10);
+        $autoload .= 'return $loader;';
 
         file_put_contents('vendor/autoload.php', $autoload);
     }
 
-    protected static function getClassNameDefinedInFile($file): string {
+    static protected function buildProxyClassCode($className)
+    {
+        $proxyClass = new ProxyClass($className);
+        //$proxyClass->addTraits(['\\' . PropertyInjectionTrait::class]);
+        $proxyClass->getMethod('Flow_Proxy_injectProperties')->addPreParentCallCode(' ');
+        $proxyClass->getMethod('Flow_Proxy_injectProperties')->overrideMethodVisibility('private');
+
+        $constructorPostCode = '';
+
+        $constructorPostCode .= '        if (\'' . $className . '\' === get_class($this)) {' . "\n";
+        $constructorPostCode .= '            $this->Flow_Proxy_injectProperties();' . "\n";
+        $constructorPostCode .= '        }' . "\n";
+
+        $constructor = $proxyClass->getConstructor();
+        $constructor->addPostParentCallCode($constructorPostCode);
+
+        return $proxyClass->render();
+
+    }
+
+    protected static function getClassNameDefinedInFile($file): string
+    {
         // taken from https://stackoverflow.com/questions/7153000/get-class-name-from-file
         $fp = fopen($file, 'r');
         $class = $namespace = $buffer = '';
@@ -89,11 +114,11 @@ class OverloadClass2
 
             if (strpos($buffer, '{') === false) continue;
 
-            for (;$i<count($tokens);$i++) {
+            for (; $i < count($tokens); $i++) {
                 if ($tokens[$i][0] === T_NAMESPACE) {
-                    for ($j=$i+1;$j<count($tokens); $j++) {
+                    for ($j = $i + 1; $j < count($tokens); $j++) {
                         if ($tokens[$j][0] === T_STRING) {
-                            $namespace .= '\\'.$tokens[$j][1];
+                            $namespace .= '\\' . $tokens[$j][1];
                         } else if ($tokens[$j] === '{' || $tokens[$j] === ';') {
                             break;
                         }
@@ -101,9 +126,9 @@ class OverloadClass2
                 }
 
                 if ($tokens[$i][0] === T_CLASS) {
-                    for ($j=$i+1;$j<count($tokens);$j++) {
+                    for ($j = $i + 1; $j < count($tokens); $j++) {
                         if ($tokens[$j] === '{') {
-                            $class = $tokens[$i+2][1];
+                            $class = $tokens[$i + 2][1];
                         }
                     }
                 }
@@ -120,13 +145,10 @@ class OverloadClass2
      * @param string $filePath
      * @return string
      */
-    protected static function copyAndRenameOriginalClassToCacheDir($cacheDir, $fullyQualifiedClassName, $filePath, IOInterface $io)
+    protected static function copyAndRenameOriginalClassToCacheDir($cacheDir, $fullyQualifiedClassName, $proxyClassCode, $filePath, IOInterface $io)
     {
         $classNameParts = explode('\\', $fullyQualifiedClassName);
         $classNameWithoutNamespace = array_pop($classNameParts);
-
-        $proxyClassCode = 'class ' . $classNameWithoutNamespace . ' extends ' . $classNameWithoutNamespace . self::ORIGINAL_CLASSNAME_SUFFIX . ' {' . chr(10);
-        $proxyClassCode .= '}' . chr(10);
 
         $fileContents = static::generateOriginalClassFileAndProxyCode($filePath, $proxyClassCode);
 
