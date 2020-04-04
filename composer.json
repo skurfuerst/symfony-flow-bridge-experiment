@@ -28,11 +28,12 @@
         "preferred-install": {
             "*": "dist"
         },
-        "sort-packages": true
+        "sort-packages": true,
+        "classmap-authoritative": true
     },
     "autoload": {
         "psr-4": {
-            "SkurfuerstProxy\\": "var/cache/SkurfuerstProxy",
+            "SkurfuerstProxyOriginals\\": "var/cache/SkurfuerstProxyOriginals",
             "App\\": "src/"
         }
     },
@@ -52,6 +53,7 @@
     },
     "scripts": {
         "pre-autoload-dump": "Skurfuerst\\ComposerProxyGenerator\\OverloadClass2::overload",
+        "post-autoload-dump": "Skurfuerst\\ComposerProxyGenerator\\OverloadClass2::post",
         "auto-scripts": {
             "cache:clear": "symfony-cmd",
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
@@ -67,8 +69,8 @@
         "symfony/symfony": "*"
     },
     "extra": {
-        "specialproxypaths": [
-            "src/"
+        "skurfuerst-proxy-paths": [
+            "src/Controller"
         ],
         "symfony": {
             "allow-contrib": false,

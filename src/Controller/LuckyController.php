@@ -1,6 +1,7 @@
 <?php
 namespace App\Controller;
 
+use Neos\Flow\Annotations as Flow;
 use App\Service\Foo;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -10,13 +11,10 @@ class LuckyController
 
 
     /**
+     * @Flow\Inject
      * @var Foo
      */
     protected $foo;
-
-    public function __construct(Foo $foo) {
-        $this->foo = $foo;
-    }
 
     /**
      * @Route("/lucky/", name="app_lucky_number")

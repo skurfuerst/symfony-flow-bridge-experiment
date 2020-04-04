@@ -12,14 +12,112 @@ class OverloadClass2
     const EXTRA_OVERLOAD_CLASS = 'composer-overload-class';
     const EXTRA_OVERLOAD_CLASS_DEV = 'composer-overload-class-dev';
     const EXTRA_OVERLOAD_DUPLICATE_ORIGINAL_FILE = 'duplicate-original-file';
-    const NAMESPACE_PREFIX = 'ComposerOverloadClass';
+    const NAMESPACE_PREFIX = 'SkurfuerstProxyOriginals';
+
+    protected static $overrideClassMap = [];
 
     public static function overload(Event $event)
     {
-        return;
-        var_dump(get_class($event));
-        static::defineAutoloadExcludeFromClassmap($event);
-        static::defineAutoloadFiles($event);
+        self::$overrideClassMap = [];
+        $extra = $event->getComposer()->getPackage()->getExtra();
+
+        foreach ($extra['skurfuerst-proxy-paths'] as $path) {
+
+            // PASS 1: check
+            $rdi = new \RecursiveDirectoryIterator($path, \RecursiveDirectoryIterator::KEY_AS_PATHNAME | \RecursiveDirectoryIterator::SKIP_DOTS);
+            foreach (new \RecursiveIteratorIterator($rdi, \RecursiveIteratorIterator::SELF_FIRST) as $file => $info) {
+                // TODO: needle must be at end
+                if (strpos($file, '.php') !== false) {
+                    // is PHP file
+                    $fileContents = file_get_contents($file);
+                    if (strpos($fileContents, 'Neos\Flow\Annotations') !== false) {
+                        // using Flow Annotations; thus we need to parse / replace this file.
+                        $className = self::getClassNameDefinedInFile($file);
+                        $className = trim($className, '\\');
+                        var_dump($className);
+
+                        static::copyAndRenameOriginalClassToCacheDir(
+                            'var/cache/SkurfuerstProxyOriginals',
+                            $className,
+                            $file,
+                            $event->getIO()
+                        );
+
+                        static::generateProxy(
+                            'var/cache/SkurfuerstProxy',
+                            $className,
+                            $file,
+                            $event->getIO()
+                        );
+
+
+                        self::$overrideClassMap[$className] = 'var/cache/SkurfuerstProxy/' . str_replace('\\', '_', $className) . '.php';
+                    }
+                }
+            }
+        }
+
+        // 2nd pass: check AOP etc...
+        // $loader = require 'vendor/autoload.php';
+        // see https://stackoverflow.com/questions/48853306/how-to-get-the-file-path-where-a-class-would-be-loaded-from-while-using-a-compos
+
+        /*static::defineAutoloadExcludeFromClassmap($event);
+        static::defineAutoloadFiles($event);*/
+    }
+
+    public static function post(Event $event)
+    {
+        rename('vendor/autoload.php', 'vendor/autoload_orig.php');
+            $autoload = '<?php' . chr(10)
+                . '$loader = require(__DIR__ . \'/autoload_orig.php\');' . chr(10);
+
+            $autoload .= '$extraClassMap = [' . chr(10);
+            foreach (self::$overrideClassMap as $className => $filePath) {
+                $autoload .= '    ' . var_export($className, true) . ' => __DIR__ . \'/../\' . ' . var_export($filePath, true) . ',' . chr(10);
+            }
+            $autoload .= '];' . chr(10);
+
+            $autoload .= '$loader->addClassMap($extraClassMap);' . chr(10);
+            $autoload .= 'return $loader;';
+
+        file_put_contents('vendor/autoload.php', $autoload);
+    }
+
+    protected static function getClassNameDefinedInFile($file): string {
+        // taken from https://stackoverflow.com/questions/7153000/get-class-name-from-file
+        $fp = fopen($file, 'r');
+        $class = $namespace = $buffer = '';
+        $i = 0;
+        while (!$class) {
+            if (feof($fp)) break;
+
+            $buffer .= fread($fp, 512);
+            $tokens = token_get_all($buffer);
+
+            if (strpos($buffer, '{') === false) continue;
+
+            for (;$i<count($tokens);$i++) {
+                if ($tokens[$i][0] === T_NAMESPACE) {
+                    for ($j=$i+1;$j<count($tokens); $j++) {
+                        if ($tokens[$j][0] === T_STRING) {
+                            $namespace .= '\\'.$tokens[$j][1];
+                        } else if ($tokens[$j] === '{' || $tokens[$j] === ';') {
+                            break;
+                        }
+                    }
+                }
+
+                if ($tokens[$i][0] === T_CLASS) {
+                    for ($j=$i+1;$j<count($tokens);$j++) {
+                        if ($tokens[$j] === '{') {
+                            $class = $tokens[$i+2][1];
+                        }
+                    }
+                }
+            }
+        }
+
+        return $namespace . '\\' . $class;
     }
 
     protected static function defineAutoloadExcludeFromClassmap(Event $event)
@@ -78,7 +176,7 @@ class OverloadClass2
                         array_key_exists(static::EXTRA_OVERLOAD_DUPLICATE_ORIGINAL_FILE, $infos) === false
                         || $infos[static::EXTRA_OVERLOAD_DUPLICATE_ORIGINAL_FILE] === false
                     ) {
-                        static::generateProxy(
+                        static::copyAndRenameOriginalClassToCacheDir(
                             $cacheDir,
                             $className,
                             $infos['original-file'],
@@ -133,10 +231,10 @@ class OverloadClass2
      * @param string $filePath
      * @return string
      */
-    protected static function generateProxy($cacheDir, $fullyQualifiedClassName, $filePath, IOInterface $io)
+    protected static function copyAndRenameOriginalClassToCacheDir($cacheDir, $fullyQualifiedClassName, $filePath, IOInterface $io)
     {
         $php = static::getPhpForDuplicatedFile($filePath, $fullyQualifiedClassName);
-        $classNameParts = array_merge(array(static::NAMESPACE_PREFIX), explode('\\', $fullyQualifiedClassName));
+        $classNameParts = explode('\\', $fullyQualifiedClassName);
         array_pop($classNameParts);
         $finalCacheDir = $cacheDir . '/' . implode('/', $classNameParts);
         static::createDirectories($finalCacheDir, $io);
@@ -153,6 +251,17 @@ class OverloadClass2
             true,
             IOInterface::VERBOSE
         );
+    }
+
+    protected static function generateProxy($cacheDir, $fullyQualifiedClassName, $filePath, IOInterface $io)
+    {
+        if (!is_dir($cacheDir)) {
+            if (!mkdir($cacheDir) && !is_dir($cacheDir)) {
+                throw new \RuntimeException(sprintf('Directory "%s" was not created', $cacheDir));
+            }
+        }
+        var_dump("COPYING");
+        copy($filePath, $cacheDir . '/' . str_replace('\\', '_', $fullyQualifiedClassName) . '.php');
     }
 
     /**
