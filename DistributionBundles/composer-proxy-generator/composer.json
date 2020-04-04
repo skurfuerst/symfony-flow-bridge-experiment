@@ -1,6 +1,9 @@
 {
   "name": "skurfuerst/composer-proxy-generator",
   "minimum-stability": "dev",
+  "require": {
+    "composer/composer": "*"
+  },
   "autoload": {
     "psr-4": {
       "Skurfuerst\\ComposerProxyGenerator\\": "src/"
