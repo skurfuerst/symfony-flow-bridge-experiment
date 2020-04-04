@@ -4,6 +4,7 @@ namespace Skurfuerst\ComposerProxyGenerator;
 
 use Composer\Script\Event;
 use Composer\IO\IOInterface;
+use Neos\Flow\ObjectManagement\Proxy\Exception;
 
 class OverloadClass2
 {
@@ -37,19 +38,11 @@ class OverloadClass2
                         var_dump($className);
 
                         static::copyAndRenameOriginalClassToCacheDir(
-                            'var/cache/SkurfuerstProxyOriginals',
-                            $className,
-                            $file,
-                            $event->getIO()
-                        );
-
-                        static::generateProxy(
                             'var/cache/SkurfuerstProxy',
                             $className,
                             $file,
                             $event->getIO()
                         );
-
 
                         self::$overrideClassMap[$className] = 'var/cache/SkurfuerstProxy/' . str_replace('\\', '_', $className) . '.php';
                     }
@@ -209,21 +202,6 @@ class OverloadClass2
         return $return;
     }
 
-    /** @param string $path */
-    protected static function createDirectories($path, IOInterface $io)
-    {
-        if (is_dir($path) === false) {
-            $io->write('Creating directory <info>' . $path . '</info>.', true, IOInterface::VERBOSE);
-
-            $createdPath = null;
-            foreach (explode('/', $path) as $directory) {
-                if (is_dir($createdPath . $directory) === false) {
-                    mkdir($createdPath . $directory);
-                }
-                $createdPath .= $directory . '/';
-            }
-        }
-    }
 
     /**
      * @param string $cacheDir
@@ -233,36 +211,19 @@ class OverloadClass2
      */
     protected static function copyAndRenameOriginalClassToCacheDir($cacheDir, $fullyQualifiedClassName, $filePath, IOInterface $io)
     {
-        $php = static::getPhpForDuplicatedFile($filePath, $fullyQualifiedClassName);
         $classNameParts = explode('\\', $fullyQualifiedClassName);
-        array_pop($classNameParts);
-        $finalCacheDir = $cacheDir . '/' . implode('/', $classNameParts);
-        static::createDirectories($finalCacheDir, $io);
+        $classNameWithoutNamespace = array_pop($classNameParts);
 
-        $overloadedFilePath = $finalCacheDir . '/' . basename($filePath);
-        file_put_contents($overloadedFilePath, $php);
+        $proxyClassCode = 'class ' . $classNameWithoutNamespace . ' extends ' . $classNameWithoutNamespace . self::ORIGINAL_CLASSNAME_SUFFIX . ' {' . chr(10);
+        $proxyClassCode .= '}' . chr(10);
 
-        $io->write(
-            'Generate proxy for <info>'
-            . $fullyQualifiedClassName
-            . '</info> in <comment>'
-            . $overloadedFilePath
-            . '</comment>',
-            true,
-            IOInterface::VERBOSE
-        );
+        $fileContents = static::generateOriginalClassFileAndProxyCode($filePath, $proxyClassCode);
+
+        $targetFile = $cacheDir . '/' . str_replace('\\', '_', $fullyQualifiedClassName) . '.php';
+        file_put_contents($targetFile, $fileContents);
     }
 
-    protected static function generateProxy($cacheDir, $fullyQualifiedClassName, $filePath, IOInterface $io)
-    {
-        if (!is_dir($cacheDir)) {
-            if (!mkdir($cacheDir) && !is_dir($cacheDir)) {
-                throw new \RuntimeException(sprintf('Directory "%s" was not created', $cacheDir));
-            }
-        }
-        var_dump("COPYING");
-        copy($filePath, $cacheDir . '/' . str_replace('\\', '_', $fullyQualifiedClassName) . '.php');
-    }
+
 
     /**
      * @param string $filePath
@@ -324,6 +285,50 @@ class OverloadClass2
         static::addUsesInPhpLines($addUses, $phpLines, ($lastUseLine === null ? $namespaceLine : $lastUseLine));
 
         return implode(null, $phpLines);
+    }
+
+    const ORIGINAL_CLASSNAME_SUFFIX = '_Original';
+
+    static protected function generateOriginalClassFileAndProxyCode($pathAndFilename, $proxyClassCode)
+    {
+        $classCode = file_get_contents($pathAndFilename);
+
+        $classNameSuffix = self::ORIGINAL_CLASSNAME_SUFFIX;
+        $classCode = preg_replace_callback('/^([a-z\s]*?)(final\s+)?(interface|class)\s+([a-zA-Z0-9_]+)/m', function ($matches) use ($pathAndFilename, $classNameSuffix) {
+            return $matches[1] . $matches[3] . ' ' . $matches[4] . $classNameSuffix;
+        }, $classCode);
+
+        // comment out "final" keyword, if the method is final and if it is advised (= part of the $proxyClassCode)
+        // Note: Method name regex according to http://php.net/manual/en/language.oop5.basic.php
+        $classCode = preg_replace_callback('/^(\s*)((public|protected)\s+)?final(\s+(public|protected))?(\s+function\s+)([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]+\s*\()/m', function ($matches) use ($pathAndFilename, $classNameSuffix, $proxyClassCode) {
+            // the method is not advised => don't remove the final keyword
+            if (strpos($proxyClassCode, $matches[0]) === false) {
+                return $matches[0];
+            }
+            return $matches[1] . $matches[2] . '/*final*/' . $matches[4] . $matches[6] . $matches[7];
+        }, $classCode);
+
+        $classCode = preg_replace('/\\?>[\n\s\r]*$/', '', $classCode);
+
+        $proxyClassCode .= "\n" . '# PathAndFilename: ' . $pathAndFilename;
+
+        $separator =
+            PHP_EOL . '#' .
+            PHP_EOL . '# Start of Flow generated Proxy code' .
+            PHP_EOL . '#' . PHP_EOL;
+
+        return $classCode . $separator . $proxyClassCode;
+    }
+
+    /**
+     * Removes the first opening php tag ("<?php") from the given $classCode if there is any
+     *
+     * @param string $classCode
+     * @return string the original class code without opening php tag
+     */
+    static protected function stripOpeningPhpTag($classCode)
+    {
+        return preg_replace('/^\s*\\<\\?php(.*\n|.*)/', '$1', $classCode, 1);
     }
 
     /**

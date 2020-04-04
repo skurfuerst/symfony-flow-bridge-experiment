@@ -33,7 +33,6 @@
     },
     "autoload": {
         "psr-4": {
-            "SkurfuerstProxyOriginals\\": "var/cache/SkurfuerstProxyOriginals",
             "App\\": "src/"
         }
     },
