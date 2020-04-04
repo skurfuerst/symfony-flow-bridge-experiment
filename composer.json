@@ -30,6 +30,7 @@
     },
     "autoload": {
         "psr-4": {
+            "SkurfuerstProxy\\": "var/cache/SkurfuerstProxy",
             "App\\": "src/"
         }
     },
@@ -48,6 +49,7 @@
         "symfony/polyfill-php56": "*"
     },
     "scripts": {
+        "pre-autoload-dump": "Skurfuerst\\ComposerProxyGenerator\\OverloadClass::overload",
         "auto-scripts": {
             "cache:clear": "symfony-cmd",
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
