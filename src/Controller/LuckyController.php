@@ -8,8 +8,14 @@ use Symfony\Component\Routing\Annotation\Route;
 class LuckyController
 {
 
+
+    /**
+     * @var Foo
+     */
+    protected $foo;
+
     public function __construct(Foo $foo) {
-        $foo->call();
+        $this->foo = $foo;
     }
 
     /**
@@ -17,6 +23,7 @@ class LuckyController
      */
     public function number()
     {
+        $this->foo->call();
         $number = random_int(0, 10);
 
         return new Response(
