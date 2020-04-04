@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "351657f55954ed8b004a678867bf3375",
+    "content-hash": "b9783ffec00e58f876e4e8444e9a8952",
     "packages": [
         {
             "name": "doctrine/inflector",
@@ -433,6 +433,21 @@
                 "psr-3"
             ],
             "time": "2020-03-23T09:12:05+00:00"
+        },
+        {
+            "name": "skurfuerst/composer-proxy-generator",
+            "version": "dev-master",
+            "dist": {
+                "type": "path",
+                "url": "./DistributionBundles/composer-proxy-generator",
+                "reference": "ae969f831dafc6ace8e3428514d59de49bc30aa1"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Skurfuerst\\ComposerProxyGenerator\\": "src/"
+                }
+            }
         },
         {
             "name": "symfony/cache",
@@ -2264,7 +2279,9 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {
+        "skurfuerst/composer-proxy-generator": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

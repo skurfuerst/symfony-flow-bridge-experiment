@@ -4,7 +4,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "./DistributionPackages/*"
+            "url": "./DistributionBundles/*"
         }
     ],
     "require": {
