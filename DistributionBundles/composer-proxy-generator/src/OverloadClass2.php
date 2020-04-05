@@ -28,6 +28,7 @@ class OverloadClass2
         $extra = $event->getComposer()->getPackage()->getExtra();
 
         $loader = require 'vendor/autoload.php';
+        $publicServices = [];
 
         foreach ($extra['skurfuerst-proxy-paths'] as $path) {
 
@@ -44,7 +45,7 @@ class OverloadClass2
                         $className = trim($className, '\\');
                         var_dump($className);
 
-                        $proxyClassCode = static::buildProxyClassCode($annotationReader, $className);
+                        $proxyClassCode = static::buildProxyClassCode($annotationReader, $className, $publicServices);
 
                         static::copyAndRenameOriginalClassToCacheDir(
                             'var/cache/SkurfuerstProxy',
@@ -83,13 +84,19 @@ class OverloadClass2
         $autoload .= 'return $loader;';
 
         file_put_contents('vendor/autoload.php', $autoload);
+        file_put_contents('vendor/public_services.json', json_encode($publicServices));
+
     }
 
-    static protected function buildProxyClassCode(AnnotationReader $annotationReader, $className)
+    static protected function buildProxyClassCode(AnnotationReader $annotationReader, $className, &$publicServices)
     {
         $proxyClass = new ProxyClass($className, $annotationReader);
         //$proxyClass->addTraits(['\\' . PropertyInjectionTrait::class]);
-        $proxyClass->getMethod('Flow_Proxy_injectProperties')->addPreParentCallCode(' ');
+
+        // TODO: make dynamic!!
+        $proxyClass->getMethod('Flow_Proxy_injectProperties')->addPreParentCallCode('$this->foo = $GLOBALS["kernel"]->getContainer()->get("App\Service\Foo");');
+        $publicServices['App\Service\Foo'] = 'App\Service\Foo';
+
         $proxyClass->getMethod('Flow_Proxy_injectProperties')->overrideMethodVisibility('private');
 
         //$proxyClass->getMethod('number')->addPreParentCallCode(' ');

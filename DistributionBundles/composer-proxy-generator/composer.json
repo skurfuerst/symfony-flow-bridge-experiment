@@ -1,6 +1,7 @@
 {
   "name": "skurfuerst/composer-proxy-generator",
   "minimum-stability": "dev",
+  "type": "symfony-bundle",
   "require": {
     "composer/composer": "*",
     "neos/utility-objecthandling": "*",

@@ -6,4 +6,5 @@ return [
     Sensio\Bundle\FrameworkExtraBundle\SensioFrameworkExtraBundle::class => ['all' => true],
     Symfony\Bundle\TwigBundle\TwigBundle::class => ['all' => true],
     Symfony\Bundle\WebProfilerBundle\WebProfilerBundle::class => ['dev' => true, 'test' => true],
+    \Skurfuerst\ComposerProxyGenerator\ComposerProxyGeneratorBundle::class => ['all' => true],
 ];
