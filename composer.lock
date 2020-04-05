@@ -1150,11 +1150,12 @@
             "dist": {
                 "type": "path",
                 "url": "./DistributionBundles/composer-proxy-generator",
-                "reference": "fec4b5e2fa4d28c04cdb9b920cd031dad77a3a2b"
+                "reference": "cea8469f343b9579fc6f542541ec81bb54df0c1d"
             },
             "require": {
                 "composer/composer": "*",
-                "neos/utility-objecthandling": "*"
+                "neos/utility-objecthandling": "*",
+                "symfony/filesystem": "*"
             },
             "type": "library",
             "autoload": {

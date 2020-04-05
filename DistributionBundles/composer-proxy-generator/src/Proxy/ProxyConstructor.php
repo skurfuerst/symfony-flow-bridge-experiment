@@ -11,6 +11,8 @@ namespace Skurfuerst\ComposerProxyGenerator\Proxy;
  * source code.
  */
 
+use Doctrine\Common\Annotations\AnnotationReader;
+
 /**
  * Representation of a constructor method within a proxy class
  *
@@ -21,10 +23,12 @@ class ProxyConstructor extends ProxyMethod
      *
      *
      * @param string $fullOriginalClassName The fully qualified class name of the original class
+     * @param AnnotationReader $annotationReader
+     * @param \ReflectionMethod|null $reflectionMethod
      */
-    public function __construct($fullOriginalClassName)
+    public function __construct($fullOriginalClassName, AnnotationReader $annotationReader, ?\ReflectionMethod $reflectionMethod)
     {
-        parent::__construct($fullOriginalClassName, '__construct');
+        parent::__construct($fullOriginalClassName, '__construct', $annotationReader, $reflectionMethod);
     }
 
     /**

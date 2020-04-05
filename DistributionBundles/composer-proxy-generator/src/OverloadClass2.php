@@ -4,9 +4,11 @@ namespace Skurfuerst\ComposerProxyGenerator;
 
 use Composer\Script\Event;
 use Composer\IO\IOInterface;
+use Doctrine\Common\Annotations\AnnotationReader;
 use Neos\Flow\ObjectManagement\DependencyInjection\PropertyInjectionTrait;
 use Neos\Flow\ObjectManagement\Proxy\Exception;
 use Skurfuerst\ComposerProxyGenerator\Proxy\ProxyClass;
+use Symfony\Component\Filesystem\Filesystem;
 
 class OverloadClass2
 {
@@ -17,8 +19,11 @@ class OverloadClass2
     const EXTRA_OVERLOAD_DUPLICATE_ORIGINAL_FILE = 'duplicate-original-file';
     const NAMESPACE_PREFIX = 'SkurfuerstProxyOriginals';
 
+
+
     public static function post(Event $event)
     {
+        $annotationReader = new AnnotationReader();
         $overrideClassMap = [];
         $extra = $event->getComposer()->getPackage()->getExtra();
 
@@ -39,7 +44,7 @@ class OverloadClass2
                         $className = trim($className, '\\');
                         var_dump($className);
 
-                        $proxyClassCode = static::buildProxyClassCode($className);
+                        $proxyClassCode = static::buildProxyClassCode($annotationReader, $className);
 
                         static::copyAndRenameOriginalClassToCacheDir(
                             'var/cache/SkurfuerstProxy',
@@ -80,12 +85,14 @@ class OverloadClass2
         file_put_contents('vendor/autoload.php', $autoload);
     }
 
-    static protected function buildProxyClassCode($className)
+    static protected function buildProxyClassCode(AnnotationReader $annotationReader, $className)
     {
-        $proxyClass = new ProxyClass($className);
+        $proxyClass = new ProxyClass($className, $annotationReader);
         //$proxyClass->addTraits(['\\' . PropertyInjectionTrait::class]);
         $proxyClass->getMethod('Flow_Proxy_injectProperties')->addPreParentCallCode(' ');
         $proxyClass->getMethod('Flow_Proxy_injectProperties')->overrideMethodVisibility('private');
+
+        //$proxyClass->getMethod('number')->addPreParentCallCode(' ');
 
         $constructorPostCode = '';
 
@@ -153,7 +160,8 @@ class OverloadClass2
         $fileContents = static::generateOriginalClassFileAndProxyCode($filePath, $proxyClassCode);
 
         $targetFile = $cacheDir . '/' . str_replace('\\', '_', $fullyQualifiedClassName) . '.php';
-        file_put_contents($targetFile, $fileContents);
+        $filesystem = new Filesystem();
+        $filesystem->dumpFile($targetFile, $fileContents);
     }
 
 

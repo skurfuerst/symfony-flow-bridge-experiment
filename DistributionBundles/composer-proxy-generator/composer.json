@@ -3,7 +3,8 @@
   "minimum-stability": "dev",
   "require": {
     "composer/composer": "*",
-    "neos/utility-objecthandling": "*"
+    "neos/utility-objecthandling": "*",
+    "symfony/filesystem": "*"
   },
   "autoload": {
     "psr-4": {

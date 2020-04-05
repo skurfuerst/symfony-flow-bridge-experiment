@@ -81,14 +81,20 @@ class ProxyClass
      * @var DocCommentParser
      */
     protected $docCommentParser;
+    /**
+     * @var AnnotationReader
+     */
+    private $annotationReader;
 
     /**
      * Creates a new ProxyClass instance.
      *
      * @param string $fullOriginalClassName The fully qualified class name of the original class
      */
-    public function __construct($fullOriginalClassName)
+    public function __construct($fullOriginalClassName, AnnotationReader $annotationReader)
     {
+        $this->annotationReader = $annotationReader;
+
         if (strpos($fullOriginalClassName, '\\') === false) {
             $this->originalClassName = $fullOriginalClassName;
         } else {
@@ -110,7 +116,7 @@ class ProxyClass
     public function getConstructor()
     {
         if (!isset($this->constructor)) {
-            $this->constructor = new ProxyConstructor($this->fullOriginalClassName);
+            $this->constructor = new ProxyConstructor($this->fullOriginalClassName, $this->annotationReader, $this->reflectionClass->getConstructor());
         }
         return $this->constructor;
     }
@@ -127,7 +133,8 @@ class ProxyClass
             return $this->getConstructor();
         }
         if (!isset($this->methods[$methodName])) {
-            $this->methods[$methodName] = new ProxyMethod($this->fullOriginalClassName, $methodName);
+            $reflectionMethod = $this->reflectionClass->hasMethod($methodName) ? $this->reflectionClass->getMethod($methodName) : null;
+            $this->methods[$methodName] = new ProxyMethod($this->fullOriginalClassName, $methodName, $this->annotationReader, $reflectionMethod);
         }
         return $this->methods[$methodName];
     }
@@ -245,8 +252,7 @@ class ProxyClass
         $classDescription = $this->docCommentParser->getDescription();
         $classDocumentation .= ' * ' . str_replace("\n", "\n * ", $classDescription) . "\n";
 
-        $annotationReader = new AnnotationReader();
-        foreach ($annotationReader->getClassAnnotations($this->reflectionClass) as $annotation) {
+        foreach ($this->annotationReader->getClassAnnotations($this->reflectionClass) as $annotation) {
             $classDocumentation .= ' * ' . AnnotationRenderer::renderAnnotation($annotation) . "\n";
         }
 
