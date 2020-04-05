@@ -12,6 +12,7 @@ namespace Skurfuerst\ComposerProxyGenerator\Proxy;
  */
 
 use Doctrine\Common\Annotations\AnnotationReader;
+use Skurfuerst\ComposerProxyGenerator\DependencyInjection\ExposeNecessaryPublicCompilerPass;
 use Skurfuerst\ComposerProxyGenerator\OverloadClass2;
 use Skurfuerst\ComposerProxyGenerator\Proxy\ProxyInterface;
 
@@ -206,7 +207,7 @@ class ProxyClass
     {
         $namespace = $this->namespace;
         $proxyClassName = $this->originalClassName;
-        $originalClassName = $this->originalClassName . OverloadClass2::ORIGINAL_CLASSNAME_SUFFIX;
+        $originalClassName = $this->originalClassName . ExposeNecessaryPublicCompilerPass::ORIGINAL_CLASSNAME_SUFFIX;
         $classModifier = '';
         if ($this->reflectionClass->isAbstract()) {
             $classModifier = 'abstract ';

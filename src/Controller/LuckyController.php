@@ -3,10 +3,11 @@ namespace App\Controller;
 
 use Neos\Flow\Annotations as Flow;
 use App\Service\Foo;
+use Skurfuerst\ComposerProxyGenerator\Api\FlowAnnotationAware;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
-class LuckyController
+class LuckyController implements FlowAnnotationAware
 {
 
 
