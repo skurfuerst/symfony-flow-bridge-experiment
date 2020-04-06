@@ -207,7 +207,7 @@ class ProxyClass
     {
         $namespace = $this->namespace;
         $proxyClassName = $this->originalClassName;
-        $originalClassName = $this->originalClassName . ExposeNecessaryPublicCompilerPass::ORIGINAL_CLASSNAME_SUFFIX;
+        $originalClassName = $this->originalClassName . OverloadClass2::ORIGINAL_CLASSNAME_SUFFIX;
         $classModifier = '';
         if ($this->reflectionClass->isAbstract()) {
             $classModifier = 'abstract ';

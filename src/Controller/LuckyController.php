@@ -1,7 +1,7 @@
 <?php
 namespace App\Controller;
 
-use Neos\Flow\Annotations as Flow;
+use Skurfuerst\ComposerProxyGenerator\Annotations as Flow;
 use App\Service\Foo;
 use Skurfuerst\ComposerProxyGenerator\Api\FlowAnnotationAware;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,7 +26,7 @@ class LuckyController implements FlowAnnotationAware
         $number = random_int(0, 10);
 
         return new Response(
-            '<html><body>Lucky number: '.$number.'</body></html>'
+            '<html><body>Luckysa number: '.$number.'</body></html>'
         );
     }
 }

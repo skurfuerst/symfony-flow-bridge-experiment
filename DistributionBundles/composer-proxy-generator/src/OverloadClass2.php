@@ -3,8 +3,13 @@
 namespace Skurfuerst\ComposerProxyGenerator;
 
 use App\Kernel;
+use Composer\Autoload\ClassLoader;
 use Composer\Script\Event;
 use Doctrine\Common\Annotations\AnnotationReader;
+use Skurfuerst\ComposerProxyGenerator\Proxy\ProxyClass;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\ErrorHandler\DebugClassLoader;
+use Symfony\Component\Filesystem\Filesystem;
 
 class OverloadClass2
 {
@@ -12,23 +17,37 @@ class OverloadClass2
 
     public static $overrideClassMap = [];
 
+    public static function pre(Event $event)
+    {
+        $fs = new Filesystem();
+        $fs->remove('var/cache/dev');
+    }
+
     public static function post(Event $event)
     {
-        $annotationReader = new AnnotationReader();
-        self::$overrideClassMap = [];
-        $extra = $event->getComposer()->getPackage()->getExtra();
+        require dirname(__DIR__) . '/../../config/bootstrap.php';
+        $kernel = new Kernel($_SERVER['APP_ENV'], (bool)$_SERVER['APP_DEBUG']);
 
-        self::$overrideClassMap = [];
-
-
-        require dirname(__DIR__).'/../../config/bootstrap.php';
-        $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
-
-        CompilationMode::withEnabledCompilationMode(function() use($kernel) {
-            $kernel->boot();
-        });
+        $kernel->boot();
 
 
+        $param = $kernel->getContainer()->getParameter('xyaaaaa');
+
+        $overrideClassMap = [];
+        $annotationsReader = $kernel->getContainer()->get('annotations.reader');
+        $autoloader = self::findAutoloader();
+        foreach ($param as $className => $config) {
+            $originalFilePath = $autoloader->findFile($className);
+            if ($config['propertyInjections']) {
+                $proxyClassCode = self::buildProxyClassCode($annotationsReader, $className, $config);
+                $overrideClassMap[$className] = self::copyAndRenameOriginalClassToCacheDir(
+                    'var/cache/SkurfuerstProxy',
+                    $className,
+                    $proxyClassCode,
+                    $originalFilePath
+                );
+            }
+        }
 
         // 3nd -> rewrite autoloader!!
         rename('vendor/autoload.php', 'vendor/autoload_orig.php');
@@ -36,7 +55,7 @@ class OverloadClass2
             . '$loader = require(__DIR__ . \'/autoload_orig.php\');' . chr(10);
 
         $autoload .= '$extraClassMap = [' . chr(10);
-        foreach (self::$overrideClassMap as $className => $filePath) {
+        foreach ($overrideClassMap as $className => $filePath) {
             $autoload .= '    ' . var_export($className, true) . ' => __DIR__ . \'/../\' . ' . var_export($filePath, true) . ',' . chr(10);
         }
         $autoload .= '];' . chr(10);
@@ -48,6 +67,88 @@ class OverloadClass2
 
     }
 
+
+    static protected function buildProxyClassCode(AnnotationReader $annotationReader, $className, $config)
+    {
+        $proxyClass = new ProxyClass($className, $annotationReader);
+        //$proxyClass->addTraits(['\\' . PropertyInjectionTrait::class]);
+
+        foreach ($config['propertyInjections'] as $propertyName => $injectType) {
+            $proxyClass->getMethod('Flow_Proxy_injectProperties')->addPreParentCallCode('$this->' . $propertyName . ' = $GLOBALS["kernel"]->getContainer()->get(' . var_export($injectType, true) . ');');
+        }
+
+        // TODO: make dynamic!!
+
+
+        $proxyClass->getMethod('Flow_Proxy_injectProperties')->overrideMethodVisibility('private');
+
+        //$proxyClass->getMethod('number')->addPreParentCallCode(' ');
+
+        $constructorPostCode = '';
+
+        $constructorPostCode .= '        if (\'' . $className . '\' === get_class($this)) {' . "\n";
+        $constructorPostCode .= '            $this->Flow_Proxy_injectProperties();' . "\n";
+        $constructorPostCode .= '        }' . "\n";
+
+        $constructor = $proxyClass->getConstructor();
+        $constructor->addPostParentCallCode($constructorPostCode);
+
+        return $proxyClass->render();
+    }
+
+
+    /**
+     * @param string $cacheDir
+     * @param string $fullyQualifiedClassName
+     * @param string $filePath
+     * @return string
+     */
+    protected static function copyAndRenameOriginalClassToCacheDir($cacheDir, $fullyQualifiedClassName, $proxyClassCode, $filePath): string
+    {
+        $classNameParts = explode('\\', $fullyQualifiedClassName);
+        $classNameWithoutNamespace = array_pop($classNameParts);
+
+        $fileContents = static::generateOriginalClassFileAndProxyCode($filePath, $proxyClassCode);
+
+        $targetFile = $cacheDir . '/' . str_replace('\\', '_', $fullyQualifiedClassName) . '.php';
+        $filesystem = new Filesystem();
+        $filesystem->dumpFile($targetFile, $fileContents);
+        return $targetFile;
+    }
+
+
+    const ORIGINAL_CLASSNAME_SUFFIX = '_Original';
+
+    static protected function generateOriginalClassFileAndProxyCode($pathAndFilename, $proxyClassCode)
+    {
+        $classCode = file_get_contents($pathAndFilename);
+
+        $classNameSuffix = self::ORIGINAL_CLASSNAME_SUFFIX;
+        $classCode = preg_replace_callback('/^([a-z\s]*?)(final\s+)?(interface|class)\s+([a-zA-Z0-9_]+)/m', function ($matches) use ($pathAndFilename, $classNameSuffix) {
+            return $matches[1] . $matches[3] . ' ' . $matches[4] . $classNameSuffix;
+        }, $classCode);
+
+        // comment out "final" keyword, if the method is final and if it is advised (= part of the $proxyClassCode)
+        // Note: Method name regex according to http://php.net/manual/en/language.oop5.basic.php
+        $classCode = preg_replace_callback('/^(\s*)((public|protected)\s+)?final(\s+(public|protected))?(\s+function\s+)([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]+\s*\()/m', function ($matches) use ($pathAndFilename, $classNameSuffix, $proxyClassCode) {
+            // the method is not advised => don't remove the final keyword
+            if (strpos($proxyClassCode, $matches[0]) === false) {
+                return $matches[0];
+            }
+            return $matches[1] . $matches[2] . '/*final*/' . $matches[4] . $matches[6] . $matches[7];
+        }, $classCode);
+
+        $classCode = preg_replace('/\\?>[\n\s\r]*$/', '', $classCode);
+
+        $proxyClassCode .= "\n" . '# PathAndFilename: ' . $pathAndFilename;
+
+        $separator =
+            PHP_EOL . '#' .
+            PHP_EOL . '# Start of Flow generated Proxy code' .
+            PHP_EOL . '#' . PHP_EOL;
+
+        return $classCode . $separator . $proxyClassCode;
+    }
 
 
     protected static function getClassNameDefinedInFile($file): string
@@ -86,6 +187,27 @@ class OverloadClass2
         }
 
         return $namespace . '\\' . $class;
+    }
+
+
+    private static function findAutoloader(): ClassLoader
+    {
+        if (!\is_array($functions = spl_autoload_functions())) {
+            throw new \RuntimeException('TODO');
+        }
+
+        foreach ($functions as $function) {
+            if (is_array($function) && $function[0] instanceof DebugClassLoader) {
+                $nestedClassLoader = $function[0]->getClassLoader();
+                if (is_array($nestedClassLoader) && $nestedClassLoader[0] instanceof ClassLoader) {
+                    return $nestedClassLoader[0];
+                }
+            }
+            if (is_array($function) && $function[0] instanceof ClassLoader) {
+                return $function[0];
+            }
+        }
+        throw new \RuntimeException('TODO');
     }
 
 
