@@ -1,0 +1,4 @@
+services:
+  App\Rector\FlowInjectToConstructorInjectionRector: {}
+  App\PhpDocNodeFactory\Flow\Property\InjectPhpDocNodeFactory:
+    autowire: true
