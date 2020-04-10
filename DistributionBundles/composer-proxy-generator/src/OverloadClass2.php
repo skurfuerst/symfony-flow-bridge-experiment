@@ -19,6 +19,9 @@ class OverloadClass2
 
     public static function pre(Event $event)
     {
+        // Clears the symfony cache - this is needed because otherwise, if the symfony cache is already filled
+        // through a web request, we get an error PHP Fatal error:  Cannot declare interface Psr\Log\LoggerInterface, because the name is already in use in /Users/sebastian/src/symfony-flow-experiment/experiment/vendor/psr/log/Psr/Log/LoggerInterface.php on line 20
+        // no clue why...
         $fs = new Filesystem();
         $fs->remove('var/cache/dev');
     }

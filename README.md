@@ -23,6 +23,30 @@ https://symfony.com/doc/current/service_container/lazy_services.html
 https://github.com/Ocramius/ProxyManager
 
 
+- AOP
+    - Unplanned extensibility: "I want to override a certain method ("anywhere") -> "Patching escape hatch" (see this repo)
+    - Security Framework in Controllers -> Symfony Security
+    - Security Framework in Entities -> could be possible via Doctrine Proxies??
+    - Security Framework ANYWHERE -> DO WE NEED TO SUPPORT THIS??
+- Dependency Injection -> Service Container + X
+    - DI in Prototypes -> do not recommend in the long term; we can do that; but maybe not recommended?
+    - DI in Singletons via Flow\Inject -> we could do this via this prototype; TODO maybe do not use this in Neos core, but use Constructor Injection instead 
+    - get all instances of an interface -> Tagged Services
+    - get all instances of an annotated class -> TODO replace via marker interfaces 
+- Cache Framework -> Symfony Cache
+- Validation -> Symfony Validation
+- Eel -> Symfony EL
+- Flow MVC -> Symfony MVC
+- Fluid ?? TODO UNSURE
+- Signals / Slots -> Event Dispatcher
+- Flow conventions -> Symfony Flex conventions
+- Resource Management -> 
+- Translation -> Intl
+- Flow Security -> Symfony Security
+- Property Mapper -> Drop (Serializer)
+
+- In Neos Core 
+- Flow Inject to Constructor Injection
 
 
 - Dependency Injection einfacher
